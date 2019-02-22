@@ -1,0 +1,313 @@
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <title>Game of Galas</title>
+  </head>
+  <body>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
+    <script type="text/javascript">
+        // Dimensions
+        const CANVAS_HEIGHT = 500;
+        const CANVAS_WIDTH = CANVAS_HEIGHT * 0.9;
+        const GRID_ROWS = 5;
+        const GRID_COLS = 6;
+        const SPACE_BETWEEN_DOTS = CANVAS_WIDTH / (GRID_COLS + 4);
+        const STROKE = SPACE_BETWEEN_DOTS / 6;
+        const DOT = STROKE; // Radius of the dot
+        const TOP_MARGIN = CANVAS_HEIGHT - (GRID_COLS + 2) * SPACE_BETWEEN_DOTS;
+
+        // Variables
+        var DotsRED = [];
+        var DotsBLUE = [];
+        var dotPair = [];
+        var LinesRED = [];
+        var LinesBLUE = [];
+
+        // Colors
+        const BACKGROUND_COLOR = "cornsilk";
+        const BORDER_COLOR = "wheat";
+        const DOT_RED_COLOR = "red";
+        const DOT_BLUE_COLOR = "blue";
+
+        // Canvas creation
+        const canvas = document.createElement("canvas");
+        canvas.height = CANVAS_HEIGHT;
+        canvas.width = CANVAS_WIDTH;
+        document.body.appendChild(canvas);
+        var canvRect = canvas.getBoundingClientRect();
+
+        // Canvas Context
+        const context = canvas.getContext("2d");
+        context.lineWidth = STROKE;
+
+        gameLoop();
+        function gameLoop() {
+            drawBackground();
+            drawGridRed();
+            drawGridBlue();
+        }
+
+        function drawBackground() {
+            context.fillStyle = BACKGROUND_COLOR;
+            context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            context.strokeStyle = BORDER_COLOR;
+            context.strokeRect(STROKE / 2, STROKE / 2, CANVAS_WIDTH - STROKE, CANVAS_HEIGHT - STROKE);
+        }
+
+        function drawGridRed() {
+            let count = 0;
+            for(let i= 0; i < GRID_ROWS; i++) {
+                for(let j = 0; j < GRID_COLS; j++) {
+                    let dot = new DotRED(++count, getGridX(j), getGridY(i));
+                    console.log("Created dot ", dot);
+                    dot.draw();
+                    DotsRED.push(dot);
+                }
+            }
+        }
+
+        function drawGridBlue() {
+            let count = 0;
+            for(let i= 0; i < GRID_COLS; i++) {
+                for(let j = 0; j < GRID_ROWS; j++) {
+                    let dot = new DotBLUE(++count, getGridX(j) + 25, getGridY(i) - 25)
+                    dot.draw();
+                    DotsBLUE.push(dot);
+                }
+            }
+        }
+
+        function getGridX(col) {
+            return SPACE_BETWEEN_DOTS * (col + 2);
+        }
+
+        function getGridY(row) {
+            return TOP_MARGIN + SPACE_BETWEEN_DOTS * (row);
+        }
+
+        // Objects
+        function DotRED(count, x, y) {
+            this.type = "RED";
+            this.name = count;
+            this.x = x;
+            this.y = y;
+            this.color = DOT_RED_COLOR;
+            this.draw = function() {
+                context.fillStyle = this.color;
+                context.beginPath();
+                context.arc(this.x, this.y, DOT, 0, Math.PI * 2);
+                context.fill();
+            }
+        }
+
+        function DotBLUE(count, x, y) {
+            this.type = "BLUE";
+            this.name = count;
+            this.x = x;
+            this.y = y;
+            this.color = DOT_BLUE_COLOR;
+            this.draw = function() {
+                context.fillStyle = this.color;
+                context.beginPath();
+                context.arc(this.x, this.y, DOT, 0, Math.PI * 2);
+                context.fill();
+            }
+        }
+
+        function LineRED(point1, point2, point1number, point2number) {
+            this.type = "RED";
+            this.point1 = point1;
+            this.point2 = point2;
+
+            this.point1number = point1number;
+            this.point2number = point2number;
+
+            this.color = "lightred";
+
+            this.draw = function() {
+                context.beginPath();
+                context.strokeStyle = this.color;
+                context.moveTo(this.point1.x, this.point1.y);
+                context.lineTo(this.point2.x, this.point2.y);
+                context.stroke();
+                context.closePath();
+            }
+        }
+
+        function LineBLUE(point1, point2, point1number, point2number) {
+            this.type = "BLUE";
+            this.point1 = point1;
+            this.point2 = point2;
+
+            this.point1number = point1number;
+            this.point2number = point2number;
+
+            this.color = "lightblue";
+
+            this.draw = function() {
+                context.beginPath();
+                context.strokeStyle = this.color;
+                context.moveTo(this.point1.x, this.point1.y);
+                context.lineTo(this.point2.x, this.point2.y);
+                context.stroke();
+                context.closePath();
+            }
+        }
+
+
+        // Events
+        function isIntersect(point, circle) {
+            return Math.sqrt((point.x-circle.x) ** 2 + (point.y - circle.y) ** 2) < DOT;
+        }
+
+        canvas.addEventListener("click", getDot);
+        function getDot(event) {
+            let x = event.clientX - canvRect.left;
+            let y = event.clientY - canvRect.top;
+            if(window.playcolor == "RED") {
+                DotsRED.forEach((dot) => {
+                    if(isIntersect({x: x, y: y}, dot)) {
+                        dotPair.push(dot);
+                        if(dotPair.length == 2) {
+                            if((dotPair[0].type == "RED" && dotPair[1].type == "RED") && (dotPair[0] !== dotPair[1])) {
+                                let lineRED = new LineRED({
+                                    x: dotPair[0].x,
+                                    y: dotPair[0].y
+                                }, {
+                                    x: dotPair[1].x,
+                                    y: dotPair[1].y
+                                }, dotPair[0].name, dotPair[1].name);
+                                lineRED.draw();
+                                LinesRED.push(lineRED);
+                                
+                                socket.emit("move", {
+                                    playid: window.playid,
+                                    slotnumber: window.slotnumber,
+                                    slotindex: window.slotindex,
+                                    playcolor: window.playcolor,
+                                    line: {
+                                        one: lineRED.point1,
+                                        two: lineRED.point2
+                                    },
+                                    dots: {
+                                        p1: lineRED.point1number,
+                                        p2: lineRED.point2number
+                                    }
+                                });
+                                
+                                dotPair = [];
+                            }
+                            else {
+                                dotPair = [];
+                            }
+                        }
+                    }
+                });
+            }
+
+            else if(window.playcolor == "BLUE") {
+                DotsBLUE.forEach((dot) => {
+                    if(isIntersect({x: x, y: y}, dot)) {
+                        dotPair.push(dot);
+                        if(dotPair.length == 2) {
+                            if((dotPair[0].type == "BLUE" && dotPair[1].type == "BLUE") && (dotPair[0] !== dotPair[1])) {
+                                let lineBLUE = new LineBLUE({
+                                    x: dotPair[0].x,
+                                    y: dotPair[0].y
+                                }, {
+                                    x: dotPair[1].x,
+                                    y: dotPair[1].y
+                                }, dotPair[0].name, dotPair[1].name);
+                                lineBLUE.draw();
+                                LinesBLUE.push(lineBLUE);
+                                
+                                socket.emit("move", {
+                                    playid: window.playid,
+                                    slotnumber: window.slotnumber,
+                                    slotindex: window.slotindex,
+                                    playcolor: window.playcolor,
+                                    line: {
+                                        one: lineBLUE.point1,
+                                        two: lineBLUE.point2
+                                    },
+                                    dots: {
+                                        p1: lineBLUE.point1number,
+                                        p2: lineBLUE.point2number
+                                    }
+                                });
+                                
+                                dotPair = [];
+                            }
+                            else {
+                                dotPair = [];
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Sockets
+        var socket = io.connect('http://localhost:5000/');
+
+        socket.on('connect', function() {
+            console.log("Connected to server");
+            window.playid = socket.id
+            socket.emit("init", {
+                playid: window.playid
+            });
+        });
+
+        socket.on("inited", (data) => {
+            if(window.playid === data.playid) {
+                console.log(data);
+                window.playcolor = data.playcolor;
+                window.slotindex = data.slotindex;
+                window.slotnumber = data.slotnumber;
+                window.currentturn = data.currentturn;
+
+                if(window.currentturn == window.slotindex) {
+                    alert("Your turn");
+                }
+                else {
+                    alert("Opponent's Turn");
+                }
+            }
+        });
+
+        socket.on("moved", (data) => {
+            console.log(data);
+            if(window.playid === data.playid || true) {
+                if(window.playcolor == 'RED') {
+                    let lineRED = new LineRED({
+                        x: data.line.one.x,
+                        y: data.line.one.y
+                    },{
+                        x: data.line.two.x,
+                        y: data.line.two.y
+                    });
+                    lineRED.draw();
+                    LinesRED.push(lineRED);
+                    console.log(lineRED);
+                }
+                if(window.playcolor == 'BLUE') {
+                    let lineBLUE = new LineBLUE({
+                        x: data.line.one.x,
+                        y: data.line.one.y
+                    },{
+                        x: data.line.two.x,
+                        y: data.line.two.y
+                    });
+                    lineBLUE.draw();
+                    LinesBLUE.push(lineBLUE);
+                    console.log(lineBLUE);
+                }
+                dotPair = [];
+            }
+        });
+
+    </script>
+
+  </body>
+  </html>
