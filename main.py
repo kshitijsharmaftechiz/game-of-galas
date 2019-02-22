@@ -3,30 +3,42 @@ from flask_socketio import SocketIO
 import numpy as np
 
 # Graph
-# from collections import defaultdict 
-# class Graph: 
-#     def __init__(self): 
-#         self.graph = defaultdict(list) 
+from collections import defaultdict 
+class Graph: 
+    def __init__(self): 
+        self.graph = defaultdict(list) 
 
-#     def addEdge(self,u,v): 
-#         self.graph[u].append(v) 
+    def addEdge(self,u,v): 
+        self.graph[u].append(v) 
   
-#     def BFS(self, s): 
+    def BFS(self, s, color): 
   
-#         visited = [False] * (len(self.graph)) 
-#         queue = [] 
-#         queue.append(s) 
-#         visited[s] = True
+        visited = [False] * 31
+        queue = [] 
+        queue.append(s) 
+        visited[s] = True
   
-#         while queue: 
-#             s = queue.pop(0) 
-#             print (s, end = " ") 
-  
-#             for i in self.graph[s]: 
-#                 if visited[i] == False: 
-#                     queue.append(i) 
-#                     visited[i] = True
+        while queue: 
+            s = queue.pop(0)
+            # print (s, end = " ") 
+            if color == "red":
+                if s == 6 or s == 12 or s == 18 or s == 24 or s == 30:
+                    return True
 
+            if color == "blue":
+                if s == 26 or s == 27 or s == 28 or s == 29 or s == 30:
+                    return True
+  
+
+            for i in self.graph[s]: 
+                if visited[i] == False: 
+                    queue.append(i) 
+                    visited[i] = True
+        # print(" ")
+        return False
+
+redgraph = Graph()
+bluegraph = Graph()
 # End Graph
 
 
@@ -38,29 +50,27 @@ slots = list()
 slots.append(list())
 slotnumber = 0
 currentturn = 0
+haswinner = False
 
-w, h = 30, 30
-RedMatrix = [[0 for x in range(w)] for y in range(h)]
-BlueMatrix = [[0 for x in range(w)] for y in range(h)]
+def findredwin():
+    global haswinner
+    try:
+        if redgraph.BFS(1, "red") or redgraph.BFS(7, "red") or redgraph.BFS(13, "red") or redgraph.BFS(19, "red") or redgraph.BFS(25, "red"):
+            haswinner = True
+            return True    
+    except:
+        pass
+    return False
 
-# def findredwin():
-#     global RedMatrix
-#     g = Graph()
-#     for i in range(0, 30):
-#         for j in range(0, 30):
-#             if(RedMatrix[i][j] == 1):
-#                 g.addEdge(i, j)
-
-#     print("BFS")
-#     try:
-#         g.BFS(0)
-#         g.BFS(1)
-#         g.BFS(2)
-#         g.BFS(3)
-#         g.BFS(4)
-#         g.BFS(5)
-#     except:
-#         pass
+def findbluewin():
+    global haswinner
+    try:
+        if bluegraph.BFS(1, "blue") or bluegraph.BFS(2, "blue") or bluegraph.BFS(3, "blue") or bluegraph.BFS(4, "blue") or bluegraph.BFS(5, "blue"):
+            haswinner = True
+            return True    
+    except:
+        pass
+    return False
 
 
 
@@ -71,7 +81,7 @@ def sessions():
 
 @socketio.on('init')
 def init_game(json, methods=['GET', 'POST']):
-    global slots, slotnumber, currentturn
+    global slots, slotnumber, currentturn, redgraph, bluegraph
     print(slotnumber)
     print("initializing game: " + str(json))
     if len(slots[slotnumber]) == 2:
@@ -97,16 +107,14 @@ def init_game(json, methods=['GET', 'POST']):
         }
         slots[slotnumber].append(data)
 
-    print()
-    print(slots)
-    print()
-    print("Responding " + str(data))
+    redgraph = Graph()
+    bluegraph = Graph()
     socketio.emit("inited", data)
 
 
 @socketio.on("move")
 def make_move(json, methods=['GET', 'POST']):
-    print("make move " + str(json))
+    global haswinner
     playid = json["playid"]
     slotnumber = json["slotnumber"]
     slotindex = json["slotindex"]
@@ -122,15 +130,29 @@ def make_move(json, methods=['GET', 'POST']):
     point2 = json["dots"]["p2"]
 
     if(playcolor == "RED"):
-        RedMatrix[point1-1][point2-1] = 1
-        RedMatrix[point2-1][point1-1] = 1
+        redgraph.addEdge(point1, point2)
     
     if(playcolor == "BLUE"):
-        BlueMatrix[point1-1][point2-1] = 1
-        BlueMatrix[point2-1][point1-1] = 1
+        bluegraph.addEdge(point1, point2)
     
-    # isredwinner = findredwin()
-    # print(isredwinner)
+    isredwinner = findredwin()
+    print("red ", isredwinner)
+    if haswinner and isredwinner:
+        socketio.emit("WIN", {
+            "message": "RED WINS",
+            "player": "RED"
+        })
+        return
+    
+    isbluewinner = findbluewin()
+    print("blue ", isbluewinner)
+    print("has winner ", haswinner)
+    if haswinner and  isbluewinner:
+        socketio.emit("WIN", {
+            "message": "BLUE WINS",
+            "player": "BLUE"
+        })
+        return
 
     playid = slots[slotnumber][0]["playid"]
 

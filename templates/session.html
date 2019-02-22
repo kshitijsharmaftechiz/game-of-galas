@@ -307,6 +307,18 @@
             }
         });
 
+        socket.on("WIN", (data) => {
+            if(data.player == window.playcolor) {
+                alert("You Win!");
+                location.reload();
+            }
+            else {
+                alert("You Loose!");
+                location.reload();
+            }
+            location.reload();
+        });
+
     </script>
 
   </body>
